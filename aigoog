@@ -1,0 +1,599 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/Nate-Mina/Pure-Gemini/blob/main/aigoog\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "Tce3stUlHN0L"
+      },
+      "source": [
+        "##### Copyright 2023 Google LLC"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "cellView": "form",
+        "id": "tuOe1ymfHZPu"
+      },
+      "outputs": [],
+      "source": [
+        "# @title Licensed under the Apache License, Version 2.0 (the \"License\");\n",
+        "# you may not use this file except in compliance with the License.\n",
+        "# You may obtain a copy of the License at\n",
+        "#\n",
+        "# https://www.apache.org/licenses/LICENSE-2.0\n",
+        "#\n",
+        "# Unless required by applicable law or agreed to in writing, software\n",
+        "# distributed under the License is distributed on an \"AS IS\" BASIS,\n",
+        "# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n",
+        "# See the License for the specific language governing permissions and\n",
+        "# limitations under the License."
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "FKwyTRdwB8aW"
+      },
+      "source": [
+        "## Setup"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "rlE8UqxrDIez"
+      },
+      "source": [
+        "### Install & import"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "RXInneX6xx7c"
+      },
+      "outputs": [],
+      "source": [
+        "!pip install -U -q google-generativeai"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "kWIuwKG2_oWE"
+      },
+      "outputs": [],
+      "source": [
+        "# Install the client library and import necessary modules.\n",
+        "import google.generativeai as genai\n",
+        "\n",
+        "import base64\n",
+        "import copy\n",
+        "import hashlib\n",
+        "import io\n",
+        "import json\n",
+        "import mimetypes\n",
+        "import pathlib\n",
+        "import pprint\n",
+        "import requests\n",
+        "\n",
+        "\n",
+        "import PIL.Image\n",
+        "import IPython.display\n",
+        "from IPython.display import Markdown"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "qZsRPVv1ITbh"
+      },
+      "source": [
+        "### Mount Google Drive"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "d9-t_OkGoLIP"
+      },
+      "outputs": [],
+      "source": [
+        "from google.colab import drive\n",
+        "\n",
+        "drive.mount(\"/gdrive\")"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "Fet3lFjdKHEM"
+      },
+      "source": [
+        "## Set the API key"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "ZoRWILAtCzBE"
+      },
+      "source": [
+        "Add your API_KEY to the secrets manager in the left panel \"🔑\"."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "LaLCwNlkCyQd"
+      },
+      "outputs": [],
+      "source": [
+        "from google.colab import userdata\n",
+        "\n",
+        "GOOGLE_API_KEY = userdata.get(\"GOOGLE_API_KEY\")"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "_SvYoR3WCeKr"
+      },
+      "outputs": [],
+      "source": [
+        "# Configure the client library by providing your API key.\n",
+        "genai.configure(api_key=GOOGLE_API_KEY)"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "weo-o73WDpdm"
+      },
+      "source": [
+        "## Parse the arguments"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "uIog-0SyDuIF"
+      },
+      "outputs": [],
+      "source": [
+        "model = 'gemini-1.5-pro-002' # @param {isTemplate: true}\n",
+        "contents_b64 = 'W3sicm9sZSI6InVzZXIiLCJwYXJ0cyI6W3siZmlsZV9kYXRhIjp7Im1pbWVfdHlwZSI6ImltYWdlL3BuZyIsImRyaXZlX2lkIjoiMWZrcjRyZC00RmVuV0xfNTBTNkZTZlBoeXA3N3BmZTVRIn19LHsidGV4dCI6InJlY29nbml6ZSB0ZXh0XFxuIn1dfSx7InJvbGUiOiJtb2RlbCIsInBhcnRzIjpbeyJ0ZXh0IjoiVGhlIHR3ZWV0IGlzIGEgam9rZSBwbGF5aW5nIG9uIHRoZSBkb3VibGUgbWVhbmluZyBvZiBcXFwicGl0Y2hpbmcsXFxcIiBcXFwiYWNjZXNzLFxcXCIgYW5kIGF4ZXMuICBcXG5cXG4qICoqUGl0Y2hpbmc6KiogIEluIHRoZSBjb250ZXh0IG9mIGEgcmVsYXRpb25zaGlwLCBcXFwicGl0Y2hpbmdcXFwiIG1pZ2h0IG1lYW4gcHJvcG9zaW5nIG9yIHN1Z2dlc3Rpbmcgc29tZXRoaW5nIChsaWtlIGdvaW5nIGRvd24gb24gc29tZW9uZSkuICBUaGUgdHdlZXQgdGhlbiB1c2VzIHRoZSBhdmlhdGlvbi9waHlzaWNzIG1lYW5pbmcsIHdoZXJlIFxcXCJwaXRjaCBheGlzXFxcIiByZWZlcnMgdG8gdGhlIHVwL2Rvd24gbW92ZW1lbnQgb2YgYW4gYWlyY3JhZnQncyBub3NlLlxcblxcbiogKipBY2Nlc3M6KiogIEluIGEgcmVsYXRpb25zaGlwLCBpdCBjb3VsZCBtZWFuIGludGltYXRlIGFjY2Vzcy4gIFRoZSB0d2VldCB1c2VzIGl0IHRvIHNldCB1cCB0aGUgXFxcImF4aXNcXFwiIHB1bi5cXG5cXG4qICoqQXhlcy9BeGVkOioqIFRoaXMgcGxheXMgb24gdGhlIHNvdW5kLWFsaWtlIHdvcmRzIFxcXCJheGVzXFxcIiAocGx1cmFsIG9mIGF4aXMpIGFuZCBcXFwiYXhlZCxcXFwiIHN1Z2dlc3Rpbmcgb3JhbCBzZXggKFxcXCJnZXR0aW5nIHBpayBheGVkXFxcIikuXFxuXFxuXFxuVGhlIHdob2xlIHR3ZWV0IGNyZWF0ZXMgYSBodW1vcm91cywgaWYgc29tZXdoYXQgY3J1ZGUsIHNjZW5hcmlvIHVzaW5nIHRlY2huaWNhbCB0ZXJtaW5vbG9neSB0byBpbXBseSBzZXh1YWwgYWN0cy5cXG4ifV19LHsicm9sZSI6InVzZXIiLCJwYXJ0cyI6W3sidGV4dCI6IndyaXRlIG91dCB2ZXJiYXR1bVxcbiJ9XX0seyJyb2xlIjoibW9kZWwiLCJwYXJ0cyI6W3sidGV4dCI6IkBOYXRlTWluYSA5IG1pbnV0ZXMgYWdvIChlZGl0ZWQpXFxuXFxuV2hlbiBteSBleCB3YW50cyB0byBnbyBkb3duLCBzaGUga2VlcHMgcGl0Y2hpbmcgZm9yIGFjY2VzcyBzbyBpIGd1ZXNzIG15IGV4IGlzIGFza2luZyBmb3IgYWNjZXNzIG9mIG15IHBpdGNoIGF4aXMsIGN1eiBzaGUgd2FudHMgdG8gZ2V0IHBpayBheGVkLi4uIE1lYW53aGlsZSwgWWF3IFBpdGNoIEF4aXMgbWUgZG93biBoZXIgcm9sbCBheGlzLCBZYXcgYXhpcyBmb3IgaXQg8J+YgiDwn5iCXFxuIn1dfSx7InJvbGUiOiJ1c2VyIiwicGFydHMiOlt7InRleHQiOiJZJ2FsbCBwaWN0dXJlcyBkb24ndCBqdWRnZSBtZSBmb3IgdGhpcy4gWW91J3JlIHRoZSBvbmUgd2hvIGFjY2VzcyBpdC4gYnV0IHlvdSBnb3R0YSByZW1lbWJlciB0aGF0LiBsYXN0IG5pZ2h0IGl0IHdhcyB5J2FsbCBwaXRjaCB0aGF0LiBheGVzLiBtZS4gSWYgc2hlIGNvdWxkIHJvbGwgbWUuIGFuZCBiZSBteSBwaXRjaC4gVGhhdCdzIHdoYXQgc2hlIHBpdGNoZWQuIEFuZCB0aGF0J3Mgd2hhdCBzaGUgd2FzIGFza2luZy4gU28gZG9uJ3QgaGF0ZSBqdXN0IGNhdXNlIHknYWxsIHBpdGNoLiB3YW50ZWQgdG8gcm9sbCB3aXRoIG1lIGxhc3QgbmlnaHQuIFknYWxsIHBpdGNoLiB3YXMgZGVmaW5pdGVseSB5YXduaW5nLiByb2xsaW5nIGFuZCBwaXRjaGluZy4gd2hlbiBzaGUgd291bGQgcm9sbC4gU29tZXRpbWVzIEknZCB5YXcgd2hlbiBzaGUgd291bGQgeWF3LiBTb21ldGltZXMgSSdkIHJvbGwuIEJ1dCBJIHlhd25lZCBpbnRvIGhlciBwaXRjaCB3aGlsZSBzaGUgd2FzIHBpdGNoaW5nLCBhbmQgSSB3YXMgZHJhd2luZy4gQW5kIHNoZSBrZXB0IGdvaW5nIG92ZXIgYWxsIG9mIGhlciBheGVzLiBTcGluIGF4aXMsIHBpdGNoIGF4aXMuIFBpdGNoIGtlZXBzIGFza2luZyBtZSBpZiBJIGNvdWxkIHJvbGwgaGVyIG9uIGhlciBheGVzLiBBbmQgdGhlbiBwaWN0dXJlIGFsbCBvdmVyLiJ9XX0seyJyb2xlIjoibW9kZWwiLCJwYXJ0cyI6W3sidGV4dCI6IlRoaXMgdGV4dCBhcHBlYXJzIHRvIGJlIGEgc3RyZWFtLW9mLWNvbnNjaW91c25lc3MgcmVjb3VudGluZyBvZiBhIHNleHVhbCBlbmNvdW50ZXIsIGNvbnRpbnVpbmcgdGhlIHRoZW1lcyBhbmQgcHVucyBmcm9tIHRoZSBvcmlnaW5hbCB0d2VldC4gIEl0J3MgZGlmZmljdWx0IHRvIGludGVycHJldCBsaXRlcmFsbHkgZHVlIHRvIHRoZSBmcmFnbWVudGVkIGFuZCByZXBldGl0aXZlIG5hdHVyZSBvZiB0aGUgd3JpdGluZy4gIEhvd2V2ZXIsIHRoZSB3cml0ZXIgc2VlbXMgdG8gYmUgYWRkcmVzc2luZyBhbiBpbWFnaW5lZCBhdWRpZW5jZSAoXFxcIlknYWxsIHBpY3R1cmVzXFxcIikgd2hvIG1pZ2h0IGp1ZGdlIHRoZWlyIGFjdGlvbnMsIGRlZmVuZGluZyB0aGVtc2VsdmVzIGJ5IHNheWluZyB0aGUgYXVkaWVuY2Ugd2FzIGFsc28gaW52b2x2ZWQgb3IgaW50ZXJlc3RlZCAoXFxcIllvdSdyZSB0aGUgb25lIHdobyBhY2Nlc3MgaXRcXFwiKS5cXG5cXG5UaGUgd3JpdGVyIHVzZXMgdGhlIGF2aWF0aW9uL3BoeXNpY3MgdGVybWlub2xvZ3kgb2YgXFxcInBpdGNoLFxcXCIgXFxcInJvbGwsXFxcIiBhbmQgXFxcInlhd1xcXCIg4oCTIGxpa2VseSByZWZlcnJpbmcgdG8gZGlmZmVyZW50IHNleHVhbCBwb3NpdGlvbnMgb3IgbW92ZW1lbnRzIOKAkyAgYW5kIGNvbWJpbmVzIHRoZW0gd2l0aCBcXFwiYXhlc1xcXCIgdG8gY3JlYXRlIGRvdWJsZSBlbnRlbmRyZXMsIHNpbWlsYXIgdG8gdGhlIG9yaWdpbmFsIHR3ZWV0LiAgVGhlIHBocmFzZSBcXFwicGlrIGF4ZWRcXFwiIGlzIGltcGxpZWQgYnV0IG5vdCBleHBsaWNpdGx5IHN0YXRlZC4gIFRoZSBvdmVyYWxsIGltcHJlc3Npb24gaXMgYSBwbGF5ZnVsLCBpZiBzb21ld2hhdCBjb25mdXNpbmcsIGRlc2NyaXB0aW9uIG9mIGEgc2V4dWFsIGV4cGVyaWVuY2UgdXNpbmcgdGVjaG5pY2FsIGxhbmd1YWdlIGZvciBodW1vcm91cyBlZmZlY3QuXFxuIn1dfSx7InJvbGUiOiJ1c2VyIiwicGFydHMiOlt7InRleHQiOiJtYWtlIGEgZnVubnkgZXhwbGFuYXRpb24gb2Ygd2h5ICBJIHdhcyB3aXRoIG15IGZyaWVuZCBkYXZlcyAgZ2lybGZyaWVuZCBcXFwicGhpXFxcIiAsIGxhc3QgbmlnaHQsIEV4cGxhaW4gdGhhdCBzaGUgd2FzIHRoZSBvbmUgd2hvIGFza2VkIG1lIGlmIEkgY291bGQgcm9sbCB3aXRoIGhlci4gYW5kIHRoZW4gbGF0ZXIgYXNrZWQuIG1lIHRvIGhlciBwbGFjZSwgc2FpZC4gV291bGQgaXQgYmUgT0sgaWYgSSByb2xsZWQgd2l0aCBoZXIgdG9uaWdodD8gZXZlbiB0aG91Z2ggdGhlcmUnZCBiZSBzb21lIHVwcyBhbmQgZG93bnMsIHNoZSBzYWlkIHNoZSB3YW50ZWQgdG8gZ28gZG93biBvbiBtZS4uIE5vdyByZXBsYWNlIGV2ZXJ5IHdvcmQgdGhhdCBzdGFydHMgd2l0aCB5J2FsbCB3aXRoLiBZLiBBLiBXLiBBbmQgcmVwbGFjZSBldmVyeXRoaW5nLiB0aGF0IHN0YXRlcyBhc2tlZCBtZSB3aXRoLiBheGlzIGFuZCByZXBsYWNlLiBhbnkgbmFtZXMgb2YgKGdpcmwsIGdpcmxmcmllbmQsIG9yIFBoaSkgd2l0aCB0aGUgd29yZCBcXFwiUElUQ0hcXFwiLiBBbmQgcmVwbGFjZSB0aGUgd29yZCBoYW5nb3V0IHdpdGggcm9sbCBhbmQgcmVwbGFjZSB0aGUgd29yZCBkb3duLiB3aXRoIHBpdGNoLiJ9XX0seyJyb2xlIjoibW9kZWwiLCJwYXJ0cyI6W3sidGV4dCI6IlNvLCBsYXN0IG5pZ2h0IGdvdCBhIGxpdHRsZS4uLiBpbnRlcmVzdGluZy4gIEkgd2FzIHdpdGggRGF2ZSdzIFBJVENILCBhbmQsIGdldCB0aGlzLCBpdCB3YXMgKmhlciogaWRlYS4gU2hlIEFYSVMgbWUgaWYgSSBjb3VsZCByb2xsIHdpdGggaGVyLiBJIHdhcyBsaWtlLCBcXFwiU3VyZSwgd2UgY2FuIHJvbGwuXFxcIiAgQSBsaXR0bGUgbGF0ZXIsIFBJVENIIEFYSVMgbWUgYWdhaW4sIHRoaXMgdGltZSB3aXRoIGFuIGludml0YXRpb24gdG8gaGVyIHBsYWNlLiAgU2hlIEFYSVMsIFxcXCJXb3VsZCBpdCBiZSBPSyBpZiBJIHJvbGxlZCB3aXRoIHlvdSB0b25pZ2h0PyAgVGhlcmUgbWlnaHQgYmUgc29tZSB1cHMgYW5kIHBpdGNoZXMsXFxcIiBzaGUgc2FpZCwgYnV0IHRoZW4gc2hlIGFkZGVkLCBcXFwiSSB3YW5uYSBwaXRjaCBvbiB5b3UuXFxcIiAgSSBtZWFuLCB3aG8gYW0gSSB0byBhcmd1ZSB3aXRoIHNvbWVvbmUgb2ZmZXJpbmcgdG8gcGl0Y2g/ICBTbywgeWVhaCwgdGhhdCdzIGhvdyBJIGVuZGVkIHVwIFkuQS5XLm5pbmcsIHJvbGxpbmcsIGFuZCBwaXRjaGluZyB3aXRoIERhdmUncyBQSVRDSCBsYXN0IG5pZ2h0LiAgSXQgd2FzIGRlZmluaXRlbHkgYSB3aWxkIHJpZGUuXFxuIn1dfSx7InJvbGUiOiJ1c2VyIiwicGFydHMiOlt7InRleHQiOiJSZXBsYWNlIHRoZSB3b3JkIERhdmUgd2l0aCB5YXcuIn1dfSx7InJvbGUiOiJtb2RlbCIsInBhcnRzIjpbeyJ0ZXh0IjoiU28sIGxhc3QgbmlnaHQgZ290IGEgbGl0dGxl4oCmIGludGVyZXN0aW5nLiBJIHdhcyB3aXRoIFlhd+KAmXMgUElUQ0gsIGFuZCwgZ2V0IHRoaXMsIGl0IHdhcyAqaGVyKiBpZGVhLiBTaGUgQVhJUyBtZSBpZiBJIGNvdWxkIHJvbGwgd2l0aCBoZXIuIEkgd2FzIGxpa2UsIFxcXCJTdXJlLCB3ZSBjYW4gcm9sbC5cXFwiIEEgbGl0dGxlIGxhdGVyLCBQSVRDSCBBWElTIG1lIGFnYWluLCB0aGlzIHRpbWUgd2l0aCBhbiBpbnZpdGF0aW9uIHRvIGhlciBwbGFjZS4gU2hlIEFYSVMsIFxcXCJXb3VsZCBpdCBiZSBPSyBpZiBJIHJvbGxlZCB3aXRoIHlvdSB0b25pZ2h0PyBUaGVyZSBtaWdodCBiZSBzb21lIHVwcyBhbmQgcGl0Y2hlcyxcXFwiIHNoZSBzYWlkLCBidXQgdGhlbiBzaGUgYWRkZWQsIFxcXCJJIHdhbm5hIHBpdGNoIG9uIHlvdS5cXFwiIEkgbWVhbiwgd2hvIGFtIEkgdG8gYXJndWUgd2l0aCBzb21lb25lIG9mZmVyaW5nIHRvIHBpdGNoPyBTbywgeWVhaCwgdGhhdCdzIGhvdyBJIGVuZGVkIHVwIFkuQS5XLm5pbmcsIHJvbGxpbmcsIGFuZCBwaXRjaGluZyB3aXRoIFlhd+KAmXMgUElUQ0ggbGFzdCBuaWdodC4gSXQgd2FzIGRlZmluaXRlbHkgYSB3aWxkIHJpZGUuXFxuIn1dfSx7InJvbGUiOiJ1c2VyIiwicGFydHMiOlt7InRleHQiOiJNYWtlIGl0IGluIHRoaXMgZm9ybWF0LCBhbiBleHBsYW5hdGlvbiB0byBhIGdyb3VwIG9mIGZyaWVuZHMgXFxcInlhbGxcXFwiIGJ1dCByZXBsYWNlZCB3aXRoIFxcXCJZQVdcXFwiIHJlcGxhY2UgQXNrIG9yIEFza2VkIHdpdGggXFxcIkF4aXNcXFwiIFJlcGxhY2UgZ28sIGdvIHdpdGgsIG9yIGhhbmcgb3V0IHdpdGggUm9sbCwgYWxzbyByZXBsYWNlICdnbyBkb3duIG9uIG1lJyB3aXRoICdQaXRjaCdkIGRvd24nIG9uIG15IGZsaWdodCBzdGljayJ9XX0seyJyb2xlIjoibW9kZWwiLCJwYXJ0cyI6W3sidGV4dCI6IllBVywgc28gbGFzdCBuaWdodCB3YXMgd2lsZC4gIEkgZW5kZWQgdXAgcm9sbGluZyB3aXRoIFlhdydzIFBJVENILiAgQ3JhenkgdGhpbmcgaXMsIHNoZSBBWElTIG1lISAgU2hlIEFYSVMgaWYgSSB3YW50ZWQgdG8gcm9sbC4gTGF0ZXIsIHNoZSBBWElTIG1lIGFnYWluLCB3YW50ZWQgdG8ga25vdyBpZiBJIHdhbnRlZCB0byByb2xsIGF0IGhlciBwbGFjZS4gU2FpZCB0aGVyZSBtaWdodCBiZSBzb21lIHVwcyBhbmQgcGl0Y2hlcywgYnV0IHNoZSB3YW50ZWQgdG8gcGl0Y2gnZCBkb3duIG9uIG15IGZsaWdodCBzdGljay4gU28sIHllYWgsIHRoYXQncyB0aGUgc3Rvcnkgb2YgaG93IEkgZW5kZWQgdXAgWS5BLlcubmluZywgcm9sbGluZywgYW5kIHBpdGNoaW5nIHdpdGggWWF3J3MgUElUQ0guICBXaWxkLCByaWdodD9cXG4ifV19LHsicm9sZSI6InVzZXIiLCJwYXJ0cyI6W3sidGV4dCI6IkFscmlnaHQsIHRoaXMgaXMgYSBuZXcgc29uZyB0aGF0IHNob3VsZCBiZSBmdW5ueSBhbmQgaXQgZ29lcy4gSSBwYXVzZWQgbGF0ZWx5IHNvIEkgY291bGQgcmVjYXBpdHVsYXRlIGdyZWF0bHkgY2F1c2UgSSBjb3VsZCBzZWUgaXQgaW4gaGVyIGV5ZXMgVGhlIHRlbGwgdGhhdCBzaGUgd2FzIGx5aW5nIGJ5IGhlciBsaXR0bGUgZGlsYXRpbmcgZXllcy4gd2hlbiB0aGV5IHBpdGNoIHVwIGF0IG1lLCBJIGNvdWxkIHRlbGwgdGhhdCB0aG9zZSBleWVzIGJlIGx5aW5nIGFuZCBJIGhhdmUgY29tZSB0byBzdXJtaXNlIHRob3NlIGxpZXMgYW5kIEkgY2FuIG5vdyBkZXNwaXNlIGhlciBleWVzLiBMaWVzIGdyZWF0bHkgYmVjYXVzZSB0aGlzICoqKiogaXMgY2FwaXR1bGF0aW5nIGdyZWF0bHkgYW5kIHNoZSdzIHByb2JhYmx5IHBpdGNoaW5nIGRvd24gb24gc29tZSBvdGhlciBcXG5ncmVhdGx5In1dfSx7InJvbGUiOiJtb2RlbCIsInBhcnRzIjpbeyJ0ZXh0IjoiKFZlcnNlIDEpXFxuWW8sIGxlbW1lIHRlbGwgeW91ICdib3V0IHRoaXMgc2l0dWF0aW9uLFxcbkhhZCB0byBwYXVzZSwgdGFrZSBhIG1lbnRhbCByZWNhcGl0dWxhdGlvbi5cXG5TYXcgaXQgY2xlYXIgYXMgZGF5LCByaWdodCB0aGVyZSBpbiBoZXIgZXllcyxcXG5UaGUgdGVsbHRhbGUgc2lnbiwgdGhvc2UgZGlsYXRpbmcgbGl0dGxlIGxpZXMuXFxuXFxuKENob3J1cylcXG5XaGVuIHRoZXkgcGl0Y2ggdXAgYXQgbWUsIEkga25vdyBzb21ldGhpbicgYWluJ3QgcmlnaHQsXFxuVGhvc2UgcGVlcGVycyBmaWJiaW4nLCBkYXkgYW5kIHRocm91Z2ggdGhlIG5pZ2h0LlxcbkkndmUgZGVjb2RlZCB0aGUgZGVjZXB0aW9uLCBzZWVuIHRocm91Z2ggdGhlIGRpc2d1aXNlLFxcbk5vdyBJIHN0cmFpZ2h0IHVwIGRlc3Bpc2UgdGhvc2UgbHlpbicgZXllcy5cXG5cXG4oVmVyc2UgMilcXG5UaGUgbGllcyBrZWVwIHBpbGluJyB1cCwgYSBtb251bWVudGFsIGhlYXAsXFxuVGhpcyB3aG9sZSByZWxhdGlvbnNoaXAncyBzdGFydGluJyB0byBjcmVlcC5cXG5TaGUncyBjYXBpdHVsYXRpbmcsIGZhbGxpbicgZm9yIGFub3RoZXIncyBjaGFybSxcXG5Qcm9iYWJseSBwaXRjaGluJyBkb3duIG9uIHNvbWUgb3RoZXIgYXJtLlxcblxcblxcblRoaXMgdmVyc2lvbiBrZWVwcyB0aGUgY29yZSBpZGVhIGFuZCBodW1vciBvZiB0aGUgb3JpZ2luYWwgd2hpbGUgaW1wcm92aW5nIHRoZSBmbG93IGFuZCByaHl0aG0gZm9yIGEgbW9yZSBzb25nLWxpa2UgZmVlbC4gIEl0IHVzZXMgbW9yZSBjb21tb24gc2xhbmcgYW5kIHBocmFzaW5nLCBtYWtpbmcgaXQgbW9yZSBhY2Nlc3NpYmxlIGFuZCBwb3RlbnRpYWxseSBmdW5uaWVyIHRvIGEgd2lkZXIgYXVkaWVuY2UuICBJdCBhbHNvIGF2b2lkcyB0aGUgZXhwbGljaXQgbGFuZ3VhZ2Ugb2YgdGhlIG9yaWdpbmFsLCB3aGljaCBtaWdodCBiZSBwcmVmZXJhYmxlIGRlcGVuZGluZyBvbiB0aGUgaW50ZW5kZWQgYXVkaWVuY2UuXFxuIn1dfSx7InJvbGUiOiJ1c2VyIiwicGFydHMiOlt7InRleHQiOiJhZ2FpbiBhbmQgcmVwbGFjZSB0aGUgZ2lybHMgbmFtZSB3aXRoICdIZWlkaVxcXCIgYW5kIG1ha2UgaGVyIGEgYmlrZXIgY2hpY2sgYW5kIGEgbGl0dGwgbmFyY2lzaXN0aWMgYW5kIHZhaW5lIn1dfSx7InJvbGUiOiJtb2RlbCIsInBhcnRzIjpbeyJ0ZXh0IjoiKFZlcnNlIDEpXFxuWW8sIGxlbW1lIHRlbGwgeW91ICdib3V0IHRoaXMgSGVpZGkgc2l0dWF0aW9uLFxcbkNocm9tZS1wbGF0ZWQgaGVhcnQsIGEgcmVhbCBiaWtlciBjaGljayBzZW5zYXRpb24uXFxuSGFkIHRvIHBhdXNlLCB0YWtlIGEgbWVudGFsIHJlY2FwaXR1bGF0aW9uLFxcblNhdyBpdCBjbGVhciBhcyBkYXksIHZhbml0eSdzIGluZmxhdGlvbi5cXG5cXG4oQ2hvcnVzKVxcbldoZW4gaGVyIGV5ZXMgcGl0Y2ggdXAgYXQgbWUsIGFsbCBwYWludGVkIGFuZCBsaW5lZCxcXG5JIGtub3cgdGhvc2UgcGVlcGVycyBmaWJiaW4nLCBhIG5hcmNpc3Npc3RpYyBraW5kLlxcbkkndmUgZGVjb2RlZCB0aGUgZGVjZXB0aW9uLCBzZWVuIHRocm91Z2ggdGhlIGRpc2d1aXNlLFxcbk5vdyBJIHN0cmFpZ2h0IHVwIGRlc3Bpc2UgSGVpZGkncyBseWluJyBleWVzLlxcblxcbihWZXJzZSAyKVxcblRoZSBsaWVzIGtlZXAgcGlsaW4nIHVwLCBoaWdoZXIgdGhhbiBoZXIgaGFpcixcXG5UaGlzIHdob2xlIGNocm9tZS1wbGF0ZWQgbG92ZSBhZmZhaXIncyBhIHNuYXJlLlxcblNoZSdzIGNhcGl0dWxhdGluZywgZmFsbGluJyBmb3Igc29tZSBvdGhlciBzdHVkJ3MgZ2xlYW0sXFxuUHJvYmFibHkgcGl0Y2hpbicgZG93biBvbiBoaXMgSGFybGV5LCBsaXZpbicgdGhlIGRyZWFtLiBcXG4ifV19LHsicm9sZSI6InVzZXIiLCJwYXJ0cyI6W3sidGV4dCI6Ik1ha2UgaXQgYSBsaXR0bGUgbG9uZ2VyIGFuZCBpbmNsdWRlIHRoZSB3b3Jkcy4gc3VybWlzZS4gYW5kIGZvcm5pY2F0aW9uIFBvcHVsYXRpb24uIGFuZCBjdWxwYWJsZS4gYW5kIG9iZnVzY2F0aW5nLiBhbmQgb3Z1bGF0aW9uLiBJbmNsdWRlIHRoZSB3b3JkcyBkZWJhdGluZyBhbmQuIHZlcmJvc2UgYW5kLiB0cnkgdG8gbWFrZSBhbGwgdGhlIHdvcmRzIGFzIGxvbmcgYXMgcG9zc2libGUuIn1dfSx7InJvbGUiOiJtb2RlbCIsInBhcnRzIjpbeyJ0ZXh0IjoiKFZlcnNlIDEpXFxuWW8sIGxlbW1lIGVsYWJvcmF0ZSBvbiB0aGlzIEhlaWRpIGNvbXBsaWNhdGlvbixcXG5BIGNocm9tZS1wbGF0ZWQgaGVhcnQsIGEgbmFyY2lzc2lzdGljIGJpa2VyIGNoaWNrIG1hbmlmZXN0YXRpb24uXFxuSGFkIHRvIHBhdXNlLCBlbmdhZ2UgaW4gYSB0aG9yb3VnaCByZWNhcGl0dWxhdGlvbixcXG5PYnNlcnZpbmcgbWV0aWN1bG91c2x5IHZhbml0eSdzIGJsYXRhbnQgaW5mbGF0aW9uLlxcblxcbihDaG9ydXMpXFxuV2hlbiBoZXIgZXllcywgbWV0aWN1bG91c2x5IGNyYWZ0ZWQsIHBpdGNoIHVwIGF0IG1lLCBzbyBjb250cml2ZWQsXFxuSSBkaXNjZXJuIHRob3NlIHBlZXBlcnMgcHJldmFyaWNhdGluZywgYSBuYXJjaXNzaXN0aWMgdmliZS5cXG5JJ3ZlIGRlY29uc3RydWN0ZWQgdGhlIG9iZnVzY2F0aW5nIGRlY2VwdGlvbiwgdGhlIGNoYXJhZGUsIHRoZSBndWlzZSxcXG5Ob3cgSSB1bmVxdWl2b2NhbGx5IGRlc3Bpc2UgSGVpZGkncyBtZW5kYWNpb3VzLCBseWluJyBleWVzLlxcblxcbihWZXJzZSAyKVxcblRoZSBmYWJyaWNhdGlvbnMgYWNjdW11bGF0ZSByZWxlbnRsZXNzbHksIGEgcHJlcG9zdGVyb3VzIGhlYXAsXFxuVGhpcyB3aG9sZSBjaHJvbWUtcGxhdGVkLCB0ZW1wZXN0dW91cyBsb3ZlIGFmZmFpciBpcyBkZWNlcHRpdmVseSBkZWVwLlxcblNoZSdzIGNhcGl0dWxhdGluZywgc3VjY3VtYmluZyB0byBzb21lIG90aGVyIGR1ZGUncyBzdXBlcmZpY2lhbCBnbGVhbSxcXG5Qcm9iYWJseSBlbmdhZ2luZyBpbiB1bmFkdWx0ZXJhdGVkIGZvcm5pY2F0aW9uLCBmdWxmaWxsaW5nIGEgaGVkb25pc3RpYyBkcmVhbS5cXG5cXG4oQnJpZGdlKVxcbkknbSBpbnRlcm5hbGx5IGRlYmF0aW5nLCBteSBjZXJlYnJ1bSBpbiBhIHN0YXRlIG9mIHZlcmJvc2UgY29udGVtcGxhdGlvbixcXG5TdXJtaXNpbmcgdGhlIGNvbXBsZXhpdGllcyBvZiB0aGlzIHBlcnBsZXhpbmcgcG9wdWxhdGlvbidzIGZvcm5pY2F0aW9uLlxcbklzIHNoZSBjdWxwYWJsZT8gIElzIHNoZSBtZXJlbHkgYSBwcm9kdWN0IG9mIGhvcm1vbmFsIG92dWxhdGlvbj9cXG5UaGVzZSBpbnF1aXJpZXMgcmV2ZXJiZXJhdGUgd2l0aGluIG15IG1lbnRhbCBoYWJpdGF0aW9uLlxcblxcbihDaG9ydXMpXFxuV2hlbiBoZXIgZXllcywgbWV0aWN1bG91c2x5IGNyYWZ0ZWQsIHBpdGNoIHVwIGF0IG1lLCBzbyBjb250cml2ZWQsXFxuSSBkaXNjZXJuIHRob3NlIHBlZXBlcnMgcHJldmFyaWNhdGluZywgYSBuYXJjaXNzaXN0aWMgdmliZS5cXG5JJ3ZlIGRlY29uc3RydWN0ZWQgdGhlIG9iZnVzY2F0aW5nIGRlY2VwdGlvbiwgdGhlIGNoYXJhZGUsIHRoZSBndWlzZSxcXG5Ob3cgSSB1bmVxdWl2b2NhbGx5IGRlc3Bpc2UgSGVpZGkncyBtZW5kYWNpb3VzLCBseWluJyBleWVzLlxcblxcblxcblRoaXMgdmVyc2lvbiBpbmNvcnBvcmF0ZXMgYWxsIHRoZSByZXF1ZXN0ZWQgd29yZHMgd2hpbGUgYXR0ZW1wdGluZyB0byBtYWludGFpbiBhIGh1bW9yb3VzIGFuZCBzbGlnaHRseSBvdmVyLXRoZS10b3AgdG9uZS4gSXQgdXNlcyBsb25nZXIsIG1vcmUgY29tcGxleCB3b3JkcyBhbmQgc2VudGVuY2Ugc3RydWN0dXJlcyB0byBjcmVhdGUgYSBtb3JlIHZlcmJvc2UgYW5kIGVsYWJvcmF0ZSBzdHlsZS5cXG4ifV19LHsicm9sZSI6InVzZXIiLCJwYXJ0cyI6W3siZmlsZV9kYXRhIjp7Im1pbWVfdHlwZSI6ImF1ZGlvL3gtbTRhIiwiZHJpdmVfaWQiOiIxU3FhWmF3aHdlU240VkhuOWdURHg2RVZXTFRHNENUbHMifX0seyJmaWxlX2RhdGEiOnsibWltZV90eXBlIjoiYXVkaW8veC1tNGEiLCJkcml2ZV9pZCI6IjFJdGU1a2VjVmJJUkJzWlQ3bHdkVHVvUGV3Y2NxR2dRVCJ9fSx7InRleHQiOiJtYWtlIGEgcmFwIGFib3V0IHRoaXNcXG4ifV19LHsicm9sZSI6Im1vZGVsIiwicGFydHMiOlt7InRleHQiOiIoSW50cm8pXFxuWW8sIGNoZWNrIHRoZSBtaWMsIG9uZSB0d28sIHRoaXMgYWluJ3Qgbm8gcnVzZSxcXG5SZWNhcGl0dWxhdGluZyBsYXRlbHksIHNwaXQgdGhlIHRydXRoLCBubyBleGN1c2UuXFxuQmVlbiBwaXRjaGluJyAnYm91dCB0aGUgcGl0Y2hpbicsIHRoZSBjYXBpdHVsYXRpb24sXFxuSGVpZGkncyBsaWVzLCBhIGRpbHV0ZWQgaGFsbHVjaW5hdGlvbi5cXG5cXG4oVmVyc2UgMSlcXG5TYXcgaXQgaW4gaGVyIGRpbGF0aW5nIGV5ZXMsIGEgZGVjZXB0aXZlIGdsZWFtLFxcbkxpa2Ugc29tZSBkZWx1ZGVkIGx5aW4nIGd1eXMsIGEgZmFicmljYXRlZCBkcmVhbS5cXG5XaGVuIEkgZ2F6ZSBpbnRvIHRob3NlIG9yYnMsIHN1c3BpY2lvbiBJIHN1cm1pc2UsXFxuTGF0ZWx5IEkgZGVzcGlzZSwgdGhvc2UgbHlpbicgZGlsYXRpbmcgZXllcy5cXG5GZWVsaW4nIGxpa2UgYSBkaW1lIG9yIGluc2lkZSwgYSB0cmFwcGVkIHNlbnNhdGlvbixcXG5SYXRoZXIgYmUgcHJpdmF0ZSwgZmluZCBzb25pYyBsaWJlcmF0aW9uLlxcbkxpc3RlbiB0byBQYXJhbW9yZSwgcHJheSBzb21lIG1vcmUsIGZpbmQgbXkgcGVhY2UsXFxuSGFycmllciBkcm9wcGluJyBkb3duLCBmYXN0ZXIgdGhhbiBoZXIgcGl0Y2hpbicgc3ByZWUuXFxuXFxuKFZlcnNlIDIpXFxuUGxheWluJyB3aXRoIG15IHN0aWNrLCBteSBzdGljayBmaWd1cmluZXMgc28gYm9sZCxcXG5TdGljayBpdCB0byB0aGUgbmVyZHMsIHN0aWNrIGl0IHRvIHRoZSBuZXJkIHRlYW1zIG9mIG9sZC5cXG5GbHlpbicgRlBWIGRyb25lcywgd2hpbGUgc2hlIGJlIGdyb2FuaW4nIGxvdyxcXG5CdXQgSSBiZSBsb25pbicsIGEgbGl0dGxlIGZsaWdodCwgd2F0Y2ggbXkgZHJvbmUgZ28uXFxuXFxuKFZlcnNlIDMpXFxuVGFsa2luJyB0byB0aGUgYm95cywgSSBzYWlkLCBcXFwiR2lybCwgZG9uJ3QgYmUgbWFkLFxcXCJcXG5cXFwiQm95LCBkb24ndCBiZSBtYWQsIGl0J3Mgbm90IHRoYXQgYmFkLlxcXCJcXG5cXFwiR2lybCwgZG9uJ3QgYmUgZnVyaW91cywgJ2JvdXQgeW91ciBsb3N0IGdpcmxmcmllbmQsXFxcIlxcblxcXCJJdCB3YXMgWWF3J3MgcGl0Y2gsIHNoZSBheGlzJ2QgbWUsIHVuZGVyc3RhbmQ/XFxcIlxcblxcbihDaG9ydXMpXFxuU2hlIHNhaWQsIFxcXCJCb3ksIGxldCBtZSBwaXRjaCBkb3duIG9uIHlvdXIgZmxpZ2h0IHN0aWNrIHRvbmlnaHQsXFxcIlxcbllhdydzIHBpdGNoIGF4aXMnZCBtZSB0byByb2xsLCB0b29rIGZsaWdodC5cXG5CaXRjaGluJyAnYm91dCBpdCwgcmVjYXBpdHVsYXRpbmcgdGhlIHNjZW5lLFxcbkRvbid0IHRyeSB0byBpbmZlciBhbmQgZGVtaXNlLCBhIGx5aW4nIHF1ZWVuLlxcblxcbihCcmlkZ2UpXFxuQ2FwaXR1bGF0ZSBsaWtlIHlvdSd2ZSBiZWVuIGJpdGNoaW4nIGxhdGVseSxcXG5DYXBpdHVsYXRlIHlvdXIgYml0Y2hlcywgdGhlc2UgYml0Y2hlcyBsYXRlbHkuXFxuQml0Y2hpbicsIGJpdGNoaW4nLCBiaXRjaGluJyByZWNhcGl0dWxhdGVkIHdvcmRzLFxcblJlY2FwaXR1bGF0aW5nIGxpZXMsIGNvbnZvbHV0ZWQgdmVyYnMuXFxuXFxuKFZlcnNlIDQpXFxuTm90IHNvIHZlcmJvc2UsIHNoZSdzIHRoZSBnaXJsIEkgZGVzcGlzZSxcXG5JJ20gYSBzYXBpb3NleHVhbCwgeW91IGNhbiBzZWUgaXQgaW4gbXkgZXllcy5cXG5Ob3QgbmV4dCB0byBoZXIsIHJhdGhlciBmbHkgYSBIYXJyaWVyIGpldCxcXG5Xb3VsZG4ndCBjb25mZXIsIHJhdGhlciBub3QgZGViYXRlLCBhaW4ndCBmaW5pc2hlZCB5ZXQuXFxuRGViYXRhYmxlLCBuZXZlciBoYXRlIGEgaGF0ZXIgdW5ncmF0ZWZ1bGx5LFxcbkJ1dCB0aGlzIGxpYmVsLCB0aGlzIGxpYmVsIGxhYmVsLCBsYWJlbHMgbWUsXFxuQW4gRU5UUCB0eXBlLCBhIGRlYmF0ZXIgZGViYXRhYmx5LFxcbk5ldmVyIGhhdGUgYSBoYXRlciwgSSBmbG93IHVuZ3JhdGVmdWxseS5cXG5cXG4oT3V0cm8pXFxuRXZlcnkgaGF0ZXIgYnJpbmdzIHdvcmRzIEkgY2FuIGRlYmF0ZSB3aXRoIHNraWxsLFxcbkknbGwgZGViYXRlLCBsZWF2ZSAnZW0gZmFkZWQsIHN0YW5kaW5nIHN0aWxsLlxcbkxpa2UgYSBzbmFrZSwgZWx1c2l2ZSwgZWx1c2l2ZSB2aWN0b3J5LFxcbkEgd2lubmVyIGNvbmNsdXNpdmVseSwgY2FuJ3QgY29tcGV0ZSB3aXRoIG1lLlxcbkNhbid0IHByeSBvdXQgdGhlc2Ugd29yZHMsIGNhbid0IG91dHNtYXJ0IG15IGZsb3csXFxuWW91IGdvbm5hIGxvc2UgaW4gdGhlIHJpbmcgb2YgZGViYXRpbmcsIHlvLlxcbkRlYmF0aW5nIHdoaWxlIHdlJ3JlIGFnaXRhdGluZywgd29yZHMgY29sbGlkZSxcXG5Db21pbmdsaW5nLCByZWFjaGluZyBlcXVpbGlicml1bSwgaW5zaWRlLiBcXG5NeSBsaWZlIGxpdmVzIGZvciB0aGlzLCBteSB3aWZlIExpYiBnaXZlcyBmb3IgdGhpcyxcXG5Ob3QgYSBwZW5ueSBmb3IgeW91ciB0aG91Z2h0cywgYSBkaXNzLCBJIGRpc21pc3MuXFxuSSdtIGEgbGliZWwgbGF3eWVyLCBjb25jaXNlIGxpbmVzIGN1dCBkZWVwLFxcbk5vd2hlcmUgYW5kIGV2ZXJ5d2hlcmUsIGFtYmlndW91c2x5IEkgY3JlZXAuXFxuXFxuXFxuVGhpcyB2ZXJzaW9uIGlzIHN0cnVjdHVyZWQgbW9yZSBsaWtlIGEgdHJhZGl0aW9uYWwgcmFwIHNvbmcgd2l0aCB2ZXJzZXMsIGEgY2hvcnVzLCBhIGJyaWRnZSwgYW5kIGFuIG91dHJvLiBJdCBpbmNvcnBvcmF0ZXMgYWxsIHRoZSByZXF1ZXN0ZWQgd29yZHMgYW5kIHRoZW1lcyB3aGlsZSBhdHRlbXB0aW5nIHRvIGNyZWF0ZSBhIG1vcmUgY29oZXJlbnQgYW5kIHJoeXRobWljIGZsb3cuIFRoZSBsYW5ndWFnZSBpcyBtb3JlIGRpcmVjdCBhbmQgbGVzcyBjb252b2x1dGVkIHRoYW4gdGhlIG9yaWdpbmFsIHRleHQsIG1ha2luZyBpdCBlYXNpZXIgdG8gZm9sbG93IGFzIGEgcmFwIHNvbmcuXFxuXFxuXFxuIn1dfV0=' # @param {isTemplate: true}\n",
+        "generation_config_b64 = 'eyJ0ZW1wZXJhdHVyZSI6MS42LCJ0b3BfcCI6MC45NSwidG9wX2siOjQwLCJtYXhfb3V0cHV0X3Rva2VucyI6ODE5Mn0=' # @param {isTemplate: true}\n",
+        "safety_settings_b64 = \"e30=\"  # @param {isTemplate: true}\n",
+        "\n",
+        "gais_contents = json.loads(base64.b64decode(contents_b64))\n",
+        "\n",
+        "generation_config = json.loads(base64.b64decode(generation_config_b64))\n",
+        "safety_settings = json.loads(base64.b64decode(safety_settings_b64))\n",
+        "\n",
+        "stream = False"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "RkbnEEIFEHFi"
+      },
+      "outputs": [],
+      "source": [
+        "gais_contents"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "ca3e641ee9d3"
+      },
+      "outputs": [],
+      "source": [
+        "generation_config"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "11ce12f5bbac"
+      },
+      "outputs": [],
+      "source": [
+        "safety_settings"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "F91AeeGO1ncU"
+      },
+      "source": [
+        "## [optional] Show the conversation\n",
+        "\n",
+        "This section displays the conversation received from Google AI Studio."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "cellView": "form",
+        "id": "yoL3p3KPylFW"
+      },
+      "outputs": [],
+      "source": [
+        "# @title `show_file` function\n",
+        "def show_file(file_data):\n",
+        "    mime_type = file_data[\"mime_type\"]\n",
+        "\n",
+        "    if drive_id := file_data.get(\"drive_id\", None):\n",
+        "        path = next(\n",
+        "            pathlib.Path(f\"/gdrive/.shortcut-targets-by-id/{drive_id}\").glob(\"*\")\n",
+        "        )\n",
+        "        name = path\n",
+        "        # data = path.read_bytes()\n",
+        "        kwargs = {\"filename\": path}\n",
+        "    elif url := file_data.get(\"url\", None):\n",
+        "        name = url\n",
+        "        kwargs = {\"url\": url}\n",
+        "        # response = requests.get(url)\n",
+        "        # data = response.content\n",
+        "    elif data := file_data.get(\"inline_data\", None):\n",
+        "        name = None\n",
+        "        kwargs = {\"data\": data}\n",
+        "    elif name := file_data.get(\"filename\", None):\n",
+        "        if not pathlib.Path(name).exists():\n",
+        "            raise IOError(\n",
+        "                f\"local file: `{name}` does not exist. You can upload files to \"\n",
+        "                'Colab using the file manager (\"📁 Files\"in the left toolbar)'\n",
+        "            )\n",
+        "    else:\n",
+        "        raise ValueError(\"Either `drive_id`, `url` or `inline_data` must be provided.\")\n",
+        "\n",
+        "        print(f\"File:\\n    name: {name}\\n    mime_type: {mime_type}\\n\")\n",
+        "        return\n",
+        "\n",
+        "    format = mimetypes.guess_extension(mime_type).strip(\".\")\n",
+        "    if mime_type.startswith(\"image/\"):\n",
+        "        image = IPython.display.Image(**kwargs, width=256)\n",
+        "        IPython.display.display(image)\n",
+        "        print()\n",
+        "        return\n",
+        "\n",
+        "    if mime_type.startswith(\"audio/\"):\n",
+        "        if len(data) < 2**12:\n",
+        "            audio = IPython.display.Audio(**kwargs)\n",
+        "            IPython.display.display(audio)\n",
+        "            print()\n",
+        "            return\n",
+        "\n",
+        "    if mime_type.startswith(\"video/\"):\n",
+        "        if len(data) < 2**12:\n",
+        "            audio = IPython.display.Video(**kwargs, mimetype=mime_type)\n",
+        "            IPython.display.display(audio)\n",
+        "            print()\n",
+        "            return\n",
+        "\n",
+        "    print(f\"File:\\n    name: {name}\\n    mime_type: {mime_type}\\n\")"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "o9D5UdhL8MTk"
+      },
+      "outputs": [],
+      "source": [
+        "for content in gais_contents:\n",
+        "    if role := content.get(\"role\", None):\n",
+        "        print(\"Role:\", role, \"\\n\")\n",
+        "\n",
+        "    for n, part in enumerate(content[\"parts\"]):\n",
+        "        if text := part.get(\"text\", None):\n",
+        "            print(text, \"\\n\")\n",
+        "\n",
+        "        elif file_data := part.get(\"file_data\", None):\n",
+        "            show_file(file_data)\n",
+        "\n",
+        "    print(\"-\" * 80, \"\\n\")"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "0F6SKiuo88LQ"
+      },
+      "source": [
+        "## Convert & upload files\n",
+        "\n",
+        "For each file, Google AI Studio either sent:\n",
+        "- a Google Drive IDs\n",
+        "- a URL, or\n",
+        "- the raw bytes (`inline_data`).\n",
+        "\n",
+        "The API itself onlty understands two ways of sending files:\n",
+        "\n",
+        "- `inline_data` - where the bytes are placed inline in the request.\n",
+        "- `file_data` - where the file is uploaded to the Files API, and you pass a reference to that file.\n",
+        "\n",
+        "This section goes through the `contents` from Google AI Studio, and uploads the file data, to the Files API, so Gemini can access it:"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "cellView": "form",
+        "id": "_wJAs_ZfuwCq"
+      },
+      "outputs": [],
+      "source": [
+        "# @title `upload_file` function\n",
+        "\n",
+        "tempfiles = pathlib.Path(f\"tempfiles\")\n",
+        "tempfiles.mkdir(parents=True, exist_ok=True)\n",
+        "\n",
+        "\n",
+        "def upload_file_data(file_data):\n",
+        "    mime_type = file_data[\"mime_type\"]\n",
+        "    if drive_id := file_data.pop(\"drive_id\", None):\n",
+        "        path = next(\n",
+        "            pathlib.Path(f\"/gdrive/.shortcut-targets-by-id/{drive_id}\").glob(\"*\")\n",
+        "        )\n",
+        "        print(\"Uploading:\", str(path))\n",
+        "        file_info = genai.upload_file(path=path, mime_type=mime_type)\n",
+        "        file_data[\"file_uri\"] = file_info.uri\n",
+        "        return\n",
+        "\n",
+        "    if url := file_data.pop(\"url\", None):\n",
+        "        response = requests.get(url)\n",
+        "        data = response.content\n",
+        "        name = url.split(\"/\")[-1]\n",
+        "        hash = hashlib.sha256(data).hexdigest()\n",
+        "        path = tempfiles / hash\n",
+        "        path.write_bytes(data)\n",
+        "        print(\"Uploading:\", url)\n",
+        "        file_info = genai.upload_file(path, display_name=name, mime_type=mime_type)\n",
+        "        file_data[\"file_uri\"] = file_info.uri\n",
+        "        return\n",
+        "\n",
+        "    if name := file_data.get(\"filename\", None):\n",
+        "        if not pathlib.Path(name).exists():\n",
+        "            raise IOError(\n",
+        "                f\"local file: `{name}` does not exist. You can upload files \"\n",
+        "                'to Colab using the file manager (\"📁 Files\"in the left '\n",
+        "                \"toolbar)\"\n",
+        "            )\n",
+        "        file_info = genai.upload_file(path, display_name=name, mime_type=mime_type)\n",
+        "        file_data[\"file_uri\"] = file_info.uri\n",
+        "        return\n",
+        "\n",
+        "    if \"inline_data\" in file_data:\n",
+        "        return\n",
+        "\n",
+        "    raise ValueError(\"Either `drive_id`, `url` or `inline_data` must be provided.\")"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "8TehY-utE3OR"
+      },
+      "outputs": [],
+      "source": [
+        "contents = copy.deepcopy(gais_contents)\n",
+        "\n",
+        "for content in contents:\n",
+        "    for n, part in enumerate(content[\"parts\"]):\n",
+        "        if file_data := part.get(\"file_data\", None):\n",
+        "            upload_file_data(file_data)"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "EUFIM-r39cuc"
+      },
+      "source": [
+        "Here is the coverted `Content`s:"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "oJ-sPFRSxdQg"
+      },
+      "outputs": [],
+      "source": [
+        "contents"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "E7zAD69vE92b"
+      },
+      "source": [
+        "## Call `generate_content`"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "LB2LxPmAB95V"
+      },
+      "outputs": [],
+      "source": [
+        "# Call the model and print the response.\n",
+        "gemini = genai.GenerativeModel(model_name=model)\n",
+        "\n",
+        "response = gemini.generate_content(\n",
+        "    contents,\n",
+        "    generation_config=generation_config,\n",
+        "    safety_settings=safety_settings,\n",
+        "    stream=False,\n",
+        ")"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "Lm3RXwYuGtZK"
+      },
+      "outputs": [],
+      "source": [
+        "if generation_config.get(\"candidate_count\", 1) == 1:\n",
+        "    display(Markdown(response.text))"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "HjT4jtJc2aAk"
+      },
+      "outputs": [],
+      "source": [
+        "response.candidates"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "eQ1YBkS4MV8L"
+      },
+      "source": [
+        "## Or Create a chat"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "aOd-4IHUqx4R"
+      },
+      "outputs": [],
+      "source": [
+        "gemini = genai.GenerativeModel(\n",
+        "    model_name=model,\n",
+        "    generation_config=generation_config,\n",
+        "    safety_settings=safety_settings,\n",
+        ")"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "nOPCBs2grsIt"
+      },
+      "source": [
+        "A `ChatSession`, should always end with the model's turn.\n",
+        "\n",
+        "So before creating the `chat` check whos turn was last.\n",
+        "\n",
+        "If the user was last, attach all but the last content as the `history` and send the last content with `send_message` to get the model's response.\n",
+        "\n",
+        "If the model was last, put the whole contents list in the history."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "aIbdDOeFqyiE"
+      },
+      "outputs": [],
+      "source": [
+        "model_turn = contents[-1].get(\"role\", None) == \"user\"\n",
+        "\n",
+        "if model_turn:\n",
+        "    chat = gemini.start_chat(history=contents[:-1])\n",
+        "\n",
+        "    response = chat.send_message(contents[-1])\n",
+        "\n",
+        "    if generation_config.get(\"candidate_count\", 1) == 1:\n",
+        "        display(Markdown(response.text))\n",
+        "else:\n",
+        "    chat = gemini.start_chat(history=contents)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "5gWBb5UtOL5M"
+      },
+      "outputs": [],
+      "source": [
+        "if model_turn:\n",
+        "    response.candidates"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "gdz66HVvsnRc"
+      },
+      "source": [
+        "After that use `send_message` to continue the conversation."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "nb87HPvBrx29"
+      },
+      "outputs": [],
+      "source": [
+        "# response = chat.send_message(\"Interesting, tell me more.\")\n",
+        "# display(Markdown(response.text))"
+      ]
+    }
+  ],
+  "metadata": {
+    "colab": {
+      "collapsed_sections": [
+        "Tce3stUlHN0L"
+      ],
+      "provenance": [],
+      "gpuType": "T4",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "display_name": "Python 3",
+      "name": "python3"
+    },
+    "accelerator": "GPU"
+  },
+  "nbformat": 4,
+  "nbformat_minor": 0
+}
